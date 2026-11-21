@@ -1,0 +1,7 @@
+name = "karkain-orm"
+version = "0.1.0-dev"
+description = "Object-relational mapping metadata and SQL text generation for Karkain"
+license = "MIT"
+targets = ["native"]
+
+[dependencies]

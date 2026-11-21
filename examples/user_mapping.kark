@@ -1,0 +1,13 @@
+// Karkain-ORM runnable example: map a user entity to SQL text.
+import orm
+
+func main() {
+    let m = new_mapper()
+    m = map_field(m, "user", "id", "user_id")
+    m = map_field(m, "user", "email", "email_addr")
+
+    println(build_select(m, "user"))
+    println(build_insert(m, "user"))
+    println("fields=" + str(field_count(m, "user")))
+    println("entities=" + str(entity_count(m)))
+}

@@ -1,0 +1,59 @@
+// Native tests for Karkain-ORM.
+
+func sample_mapper() {
+    let m = map_field(new_mapper(), "user", "id", "user_id")
+    m = map_field(m, "user", "name", "full_name")
+    return map_field(m, "order", "id", "order_id")
+}
+
+func test_new_mapper() {
+    assert_eq(field_count(new_mapper(), "user"), 0)
+    assert_eq(entity_count(new_mapper()), 0)
+}
+
+func test_map_field() {
+    let m = sample_mapper()
+    assert_eq(field_count(m, "user"), 2)
+    assert_eq(entity_count(m), 2)
+}
+
+func test_has_and_column() {
+    let m = sample_mapper()
+    assert(has_mapping(m, "user", "name"))
+    assert(has_mapping(m, "user", "missing") == false)
+    assert_eq(column_for(m, "user", "name"), "full_name")
+    assert_eq(column_for(m, "user", "missing"), "")
+}
+
+func test_map_field_replaces() {
+    let m = map_field(sample_mapper(), "user", "id", "uid")
+    assert_eq(field_count(m, "user"), 2)
+    assert_eq(column_for(m, "user", "id"), "uid")
+}
+
+func test_unmap_field() {
+    let m = unmap_field(sample_mapper(), "user", "id")
+    assert_eq(field_count(m, "user"), 1)
+    assert(has_mapping(m, "user", "id") == false)
+}
+
+func test_build_select() {
+    let m = sample_mapper()
+    assert_eq(build_select(m, "user"), "SELECT user_id,full_name FROM user")
+}
+
+func test_build_insert() {
+    let m = sample_mapper()
+    assert_eq(build_insert(m, "order"), "INSERT INTO order (order_id) VALUES (?)")
+}
+
+func test_build_empty() {
+    assert_eq(build_select(new_mapper(), "x"), "SELECT  FROM x")
+    assert_eq(build_insert(new_mapper(), "x"), "INSERT INTO x () VALUES ()")
+}
+
+func test_describe_mapping() {
+    let m = sample_mapper()
+    assert_eq(describe_mapping(m, "user", "name"), "user.name -> full_name")
+    assert_eq(describe_mapping(m, "user", "none"), "user.none -> <missing>")
+}

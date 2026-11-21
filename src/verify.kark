@@ -1,0 +1,14 @@
+// Integration verification for the Karkain-ORM public API.
+import orm
+
+func main() {
+    let m = new_mapper()
+    m = map_field(m, "user", "id", "user_id")
+    m = map_field(m, "user", "name", "full_name")
+
+    assert_eq(field_count(m, "user"), 2)
+    assert_eq(entity_count(m), 1)
+    println(build_select(m, "user"))
+    println(build_insert(m, "user"))
+    println(describe_mapping(m, "user", "name"))
+}

@@ -1,0 +1,156 @@
+// Karkain-ORM - object-relational mapping metadata and SQL text.
+// Karkain Language v1.2.0 verified baseline (tag v1.2.0,
+// commit 77d70693e1e3134dac312a303bffafa7d50fa988).
+//
+// Scope boundary: v1.2.0 provides std.db as a SQL-text engine. This
+// framework supplies portable mapping metadata and SQL string generation;
+// it does not open connections or execute statements.
+//
+// Mapper representation: quadruples [entity, field, column, kind, ...].
+// Arrays are values; mutating functions return the updated mapper.
+
+// new_mapper returns an empty mapping.
+public func new_mapper() {
+    return []
+}
+
+// map_field declares a field-to-column mapping for an entity.
+public func map_field(mapper, entity, field, column) {
+    let out = unmap_field(mapper, entity, field)
+    out = push(out, entity)
+    out = push(out, field)
+    out = push(out, column)
+    out = push(out, "column")
+    return out
+}
+
+// unmap_field removes a field mapping.
+public func unmap_field(mapper, entity, field) {
+    let out = []
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            if mapper[i + 1] == field {
+                i = i + 4
+            } else {
+                out = push(out, mapper[i])
+                out = push(out, mapper[i + 1])
+                out = push(out, mapper[i + 2])
+                out = push(out, mapper[i + 3])
+                i = i + 4
+            }
+        } else {
+            out = push(out, mapper[i])
+            out = push(out, mapper[i + 1])
+            out = push(out, mapper[i + 2])
+            out = push(out, mapper[i + 3])
+            i = i + 4
+        }
+    }
+    return out
+}
+
+// has_mapping reports whether a field is mapped.
+public func has_mapping(mapper, entity, field) {
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            if mapper[i + 1] == field {
+                return true
+            }
+        }
+        i = i + 4
+    }
+    return false
+}
+
+// column_for returns the mapped column or "".
+public func column_for(mapper, entity, field) {
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            if mapper[i + 1] == field {
+                return mapper[i + 2]
+            }
+        }
+        i = i + 4
+    }
+    return ""
+}
+
+// field_count returns the number of mapped fields for an entity.
+public func field_count(mapper, entity) {
+    let n = 0
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            n = n + 1
+        }
+        i = i + 4
+    }
+    return n
+}
+
+// entity_count returns the number of distinct mapped entities.
+public func entity_count(mapper) {
+    let names = []
+    let i = 0
+    while (i < len(mapper)) {
+        let found = false
+        let j = 0
+        while (j < len(names)) {
+            if names[j] == mapper[i] {
+                found = true
+            }
+            j = j + 1
+        }
+        if found == false {
+            names = push(names, mapper[i])
+        }
+        i = i + 4
+    }
+    return len(names)
+}
+
+// build_select produces a deterministic SELECT statement.
+public func build_select(mapper, entity) {
+    let cols = ""
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            if len(cols) > 0 {
+                cols = cols + ","
+            }
+            cols = cols + mapper[i + 2]
+        }
+        i = i + 4
+    }
+    return "SELECT " + cols + " FROM " + entity
+}
+
+// build_insert produces a parameterised INSERT statement.
+public func build_insert(mapper, entity) {
+    let cols = ""
+    let marks = ""
+    let i = 0
+    while (i < len(mapper)) {
+        if mapper[i] == entity {
+            if len(cols) > 0 {
+                cols = cols + ","
+                marks = marks + ","
+            }
+            cols = cols + mapper[i + 2]
+            marks = marks + "?"
+        }
+        i = i + 4
+    }
+    return "INSERT INTO " + entity + " (" + cols + ") VALUES (" + marks + ")"
+}
+
+// describe_mapping builds a one-line mapping diagnostic.
+public func describe_mapping(mapper, entity, field) {
+    if has_mapping(mapper, entity, field) == false {
+        return entity + "." + field + " -> <missing>"
+    }
+    return entity + "." + field + " -> " + column_for(mapper, entity, field)
+}
