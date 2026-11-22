@@ -1,0 +1,19 @@
+// Karkain-ORM Phase 2 example: mapping metadata and query construction.
+import orm
+
+func main() {
+    let mapper = orm.new_mapper()
+    mapper = orm.map_field(mapper, "user", "id", "user_id")
+    mapper = orm.map_field(mapper, "user", "name", "full_name")
+
+    let entities = orm.set_primary_key(orm.define_entity(orm.new_entities(), "user", "users"), "user", "id")
+    let conditions = orm.add_condition(orm.new_conditions(), "id", "=", 7)
+
+    println(orm.entity_table(entities, "user"))
+    println("key=" + orm.primary_key(entities, "user"))
+    println(orm.build_select_where(mapper, "user", conditions))
+    println("valid=" + str(orm.validate_query(mapper, "user", conditions)))
+
+    let provider = orm.new_provider("test-adapter", "select,insert")
+    println("select=" + str(orm.provider_supports(provider, "select")))
+}

@@ -154,3 +154,257 @@ public func describe_mapping(mapper, entity, field) {
     }
     return entity + "." + field + " -> " + column_for(mapper, entity, field)
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 additions. Phase 1 mapping and SQL-text APIs are unchanged. No
+// database driver, file or socket builtin exists in the verified v1.2.0
+// subset, so real persistence is BLOCKED. Adapters below are deterministic
+// test adapters, not database integrations.
+
+// new_entities creates an entity metadata store.
+public func new_entities() {
+    return []
+}
+
+// define_entity declares an entity and its table name.
+public func define_entity(entities, name, table) {
+    let out = []
+    out = push(out, name)
+    out = push(out, table)
+    out = push(out, "")
+    out = push(out, "")
+    let i = 0
+    while (i < len(entities)) {
+        if entities[i] == name {
+            i = i + 4
+        } else {
+            out = push(out, entities[i])
+            out = push(out, entities[i + 1])
+            out = push(out, entities[i + 2])
+            out = push(out, entities[i + 3])
+            i = i + 4
+        }
+    }
+    return out
+}
+
+// entity_table returns the mapped table or "".
+public func entity_table(entities, name) {
+    let i = 0
+    while (i < len(entities)) {
+        if entities[i] == name { return entities[i + 1] }
+        i = i + 4
+    }
+    return ""
+}
+
+// entity_defined reports whether an entity is declared.
+public func entity_defined(entities, name) {
+    return entity_table(entities, name) != ""
+}
+
+// set_primary_key records a primary key field.
+public func set_primary_key(entities, name, field) {
+    let out = []
+    let i = 0
+    while (i < len(entities)) {
+        if entities[i] == name {
+            out = push(out, entities[i])
+            out = push(out, entities[i + 1])
+            out = push(out, field)
+            out = push(out, entities[i + 3])
+        } else {
+            out = push(out, entities[i])
+            out = push(out, entities[i + 1])
+            out = push(out, entities[i + 2])
+            out = push(out, entities[i + 3])
+        }
+        i = i + 4
+    }
+    return out
+}
+
+// primary_key returns the primary key field or "".
+public func primary_key(entities, name) {
+    let i = 0
+    while (i < len(entities)) {
+        if entities[i] == name { return entities[i + 2] }
+        i = i + 4
+    }
+    return ""
+}
+
+// new_relationships creates an empty relationship metadata store.
+public func new_relationships() {
+    return []
+}
+
+// add_relationship records an entity/field/target/kind relationship.
+public func add_relationship(relationships, entity, field, target, kind) {
+    let out = relationships
+    out = push(out, entity)
+    out = push(out, field)
+    out = push(out, target)
+    out = push(out, kind)
+    return out
+}
+
+// relationship_count returns the number of declared relationships.
+public func relationship_count(relationships) {
+    return len(relationships) / 4
+}
+
+// relationship_kind returns the kind of a relationship or "".
+public func relationship_kind(relationships, entity, field) {
+    let i = 0
+    while (i < len(relationships)) {
+        if relationships[i] == entity {
+            if relationships[i + 1] == field { return relationships[i + 3] }
+        }
+        i = i + 4
+    }
+    return ""
+}
+
+// valid_operator reports whether a comparison operator is supported.
+public func valid_operator(op) {
+    if op == "=" { return true }
+    if op == "!=" { return true }
+    if op == "<" { return true }
+    if op == ">" { return true }
+    if op == "<=" { return true }
+    if op == ">=" { return true }
+    return false
+}
+
+// new_conditions creates an empty WHERE condition list.
+public func new_conditions() {
+    return []
+}
+
+// add_condition appends a field/operator/value condition.
+public func add_condition(conditions, field, op, value) {
+    let out = conditions
+    out = push(out, field)
+    out = push(out, op)
+    out = push(out, value)
+    return out
+}
+
+// condition_count returns the number of conditions.
+public func condition_count(conditions) {
+    return len(conditions) / 3
+}
+
+// validate_conditions reports the number of invalid operators.
+public func validate_conditions(conditions) {
+    let n = 0
+    let i = 0
+    while (i < len(conditions)) {
+        if valid_operator(conditions[i + 1]) == false { n = n + 1 }
+        i = i + 3
+    }
+    return n
+}
+
+// parameter_values returns the values of a condition list.
+public func parameter_values(conditions) {
+    let out = []
+    let i = 0
+    while (i < len(conditions)) {
+        out = push(out, conditions[i + 2])
+        i = i + 3
+    }
+    return out
+}
+
+// compose_conditions concatenates two condition lists for explicit AND/OR
+// handling in a host; the framework keeps them separate to avoid ambiguity.
+public func compose_conditions(a, b) {
+    let out = a
+    let i = 0
+    while (i < len(b)) {
+        out = push(out, b[i])
+        i = i + 1
+    }
+    return out
+}
+
+// build_where renders a condition list as SQL text.
+public func build_where(conditions) {
+    let out = ""
+    let i = 0
+    while (i < len(conditions)) {
+        if len(out) > 0 { out = out + " AND " }
+        out = out + conditions[i] + conditions[i + 1] + str(conditions[i + 2])
+        i = i + 3
+    }
+    return out
+}
+
+// build_select_where renders a SELECT with a WHERE clause.
+public func build_select_where(mapper, entity, conditions) {
+    return build_select(mapper, entity) + " WHERE " + build_where(conditions)
+}
+
+// build_update renders a parameterised UPDATE statement for a field.
+public func build_update(mapper, entity, field, conditions) {
+    return "UPDATE " + entity + " SET " + column_for(mapper, entity, field) + "=? WHERE " + build_where(conditions)
+}
+
+// build_delete renders a DELETE statement.
+public func build_delete(mapper, entity, conditions) {
+    return "DELETE FROM " + entity + " WHERE " + build_where(conditions)
+}
+
+// build_count renders a COUNT statement.
+public func build_count(entity) {
+    return "SELECT COUNT(*) FROM " + entity
+}
+
+// order_clause builds an ORDER BY clause.
+public func order_clause(field, direction) {
+    return " ORDER BY " + field + " " + direction
+}
+
+// page_clause builds a LIMIT/OFFSET clause.
+public func page_clause(offset, limit) {
+    return " LIMIT " + str(limit) + " OFFSET " + str(offset)
+}
+
+// validate_query checks operator validity and mapped fields.
+public func validate_query(mapper, entity, conditions) {
+    if validate_conditions(conditions) > 0 { return false }
+    let i = 0
+    while (i < len(conditions)) {
+        if has_mapping(mapper, entity, conditions[i]) == false { return false }
+        i = i + 3
+    }
+    return true
+}
+
+// new_provider declares a provider with a name and capability string.
+public func new_provider(name, capabilities) {
+    let p = []
+    p = push(p, name)
+    p = push(p, capabilities)
+    return p
+}
+
+// provider_supports reports whether a capability is advertised.
+public func provider_supports(provider, capability) {
+    return contains(provider[1], capability)
+}
+
+// transaction_contract returns a documented transaction lifecycle string.
+public func transaction_contract() {
+    return "begin>commit|rollback"
+}
+
+// db_error maps error codes to stable names.
+public func db_error(code) {
+    if code == 1 { return "connection" }
+    if code == 2 { return "query" }
+    if code == 3 { return "mapping" }
+    return "unknown"
+}

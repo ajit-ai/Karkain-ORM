@@ -57,3 +57,87 @@ func test_describe_mapping() {
     assert_eq(describe_mapping(m, "user", "name"), "user.name -> full_name")
     assert_eq(describe_mapping(m, "user", "none"), "user.none -> <missing>")
 }
+
+// --- Phase 2 regression ---
+
+func test_phase1_regression() {
+    let m = sample_mapper()
+    assert_eq(field_count(m, "user"), 2)
+    assert_eq(column_for(m, "user", "id"), "user_id")
+    assert_eq(build_select(m, "user"), "SELECT user_id,full_name FROM user")
+}
+
+// --- Phase 2 additions ---
+
+func test_entity_metadata() {
+    let e = define_entity(new_entities(), "user", "users")
+    assert(entity_defined(e, "user"))
+    assert_eq(entity_table(e, "user"), "users")
+    assert(entity_defined(e, "none") == false)
+    let replaced = define_entity(e, "user", "accounts")
+    assert_eq(entity_table(replaced, "user"), "accounts")
+}
+
+func test_primary_key() {
+    let e = set_primary_key(define_entity(new_entities(), "user", "users"), "user", "id")
+    assert_eq(primary_key(e, "user"), "id")
+    assert_eq(primary_key(e, "none"), "")
+}
+
+func test_relationships() {
+    let r = add_relationship(add_relationship(new_relationships(), "user", "orders", "order", "one-to-many"), "user", "role", "role", "many-to-one")
+    assert_eq(relationship_count(r), 2)
+    assert_eq(relationship_kind(r, "user", "orders"), "one-to-many")
+    assert_eq(relationship_kind(r, "user", "none"), "")
+}
+
+func test_conditions() {
+    let c = add_condition(add_condition(new_conditions(), "age", ">=", 18), "name", "=", "Ajit")
+    assert_eq(condition_count(c), 2)
+    assert_eq(validate_conditions(c), 0)
+    assert_eq(len(parameter_values(c)), 2)
+    assert_eq(build_where(c), "age>=18 AND name=Ajit")
+}
+
+func test_invalid_operators() {
+    assert(valid_operator("="))
+    assert(valid_operator("like") == false)
+    let c = add_condition(new_conditions(), "age", "like", 1)
+    assert_eq(validate_conditions(c), 1)
+}
+
+func test_query_builders() {
+    let m = sample_mapper()
+    let c = add_condition(new_conditions(), "id", "=", 1)
+    assert_eq(build_select_where(m, "user", c), "SELECT user_id,full_name FROM user WHERE id=1")
+    assert_eq(build_delete(m, "user", c), "DELETE FROM user WHERE id=1")
+    assert_eq(build_count("user"), "SELECT COUNT(*) FROM user")
+    assert_eq(build_update(m, "user", "name", c), "UPDATE user SET full_name=? WHERE id=1")
+}
+
+func test_clauses_and_composition() {
+    let a = add_condition(new_conditions(), "x", "=", 1)
+    let b = add_condition(new_conditions(), "y", ">", 2)
+    assert_eq(condition_count(compose_conditions(a, b)), 2)
+    assert_eq(order_clause("x", "ASC"), " ORDER BY x ASC")
+    assert_eq(page_clause(10, 5), " LIMIT 5 OFFSET 10")
+}
+
+func test_validate_query() {
+    let m = sample_mapper()
+    let ok = add_condition(new_conditions(), "id", "=", 1)
+    assert(validate_query(m, "user", ok))
+    let badfield = add_condition(new_conditions(), "missing", "=", 1)
+    assert(validate_query(m, "user", badfield) == false)
+    let badop = add_condition(new_conditions(), "id", "like", 1)
+    assert(validate_query(m, "user", badop) == false)
+}
+
+func test_provider_contract() {
+    let p = new_provider("test-adapter", "select,insert")
+    assert(provider_supports(p, "select"))
+    assert(provider_supports(p, "update") == false)
+    assert_eq(transaction_contract(), "begin>commit|rollback")
+    assert_eq(db_error(1), "connection")
+    assert_eq(db_error(99), "unknown")
+}
